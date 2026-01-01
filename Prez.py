@@ -9,7 +9,9 @@ class PrezGenerator:
         self.root = root
         self.root.title("Générateur de Prez BBCode - TMDb Edition")
         self.root.geometry("900x900")
-        self.api_key = "4c22b77c619730b090a06963a508f4db"
+
+        # Clé par défaut (optionnelle)
+        self.default_api_key = "Votre clé API"
         self.setup_ui()
 
     def setup_ui(self):
@@ -33,20 +35,42 @@ class PrezGenerator:
         self.setup_tab_release()
         self.setup_tab_bbcode()
 
-    def setup_tab_general(self):
+    def setup_tab_general(self)
+        api_frame = ttk.Frame(self.tab_general)
+        api_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+
+        ttk.Label(api_frame, text="Clé API TMDb :", font=("Arial", 9, "bold")).pack(side="left")
+        self.api_key_var = tk.StringVar(value=self.default_api_key)
+        self.api_entry = ttk.Entry(api_frame, textvariable=self.api_key_var, show="*", width=45)
+        self.api_entry.pack(side="left", padx=5)
+
+        self.btn_show_api = ttk.Button(api_frame, text="👁", width=3, command=self.toggle_api_visibility)
+        self.btn_show_api.pack(side="left")
+
+        ttk.Separator(self.tab_general, orient='horizontal').grid(row=1, column=0, columnspan=2, sticky="ew", pady=10)
+
         self.api_vars = {
             "Titre": tk.StringVar(), "Titre Original": tk.StringVar(), "Année": tk.StringVar(),
             "Réalisateur": tk.StringVar(), "Acteurs": tk.StringVar(), "Genres": tk.StringVar(),
             "Durée": tk.StringVar(), "Note": tk.StringVar(), "Lien TMDb": tk.StringVar(), "Poster": tk.StringVar()
         }
+
         for i, (label, var) in enumerate(self.api_vars.items()):
             if label == "Poster": continue
-            ttk.Label(self.tab_general, text=f"{label} :").grid(row=i, column=0, sticky="w", pady=3)
-            ttk.Entry(self.tab_general, textvariable=var, width=70).grid(row=i, column=1, padx=10, pady=3)
-        ttk.Label(self.tab_general, text="Synopsis :").grid(row=9, column=0, sticky="nw", pady=3)
+            ttk.Label(self.tab_general, text=f"{label} :").grid(row=i+2, column=0, sticky="w", pady=3)
+            ttk.Entry(self.tab_general, textvariable=var, width=70).grid(row=i+2, column=1, padx=10, pady=3)
+
+        ttk.Label(self.tab_general, text="Synopsis :").grid(row=11, column=0, sticky="nw", pady=3)
         self.synopsis_text = tk.Text(self.tab_general, height=8, width=52, font=("Arial", 9))
-        self.synopsis_text.grid(row=9, column=1, padx=10, pady=3)
-        ttk.Button(self.tab_general, text="🔍 RÉCUPÉRER & GÉNÉRER LE BBCODE", command=self.fetch_tmdb_data).grid(row=10, column=0, columnspan=2, pady=15)
+        self.synopsis_text.grid(row=11, column=1, padx=10, pady=3)
+
+        ttk.Button(self.tab_general, text="🔍 RÉCUPÉRER & GÉNÉRER LE BBCODE", command=self.fetch_tmdb_data).grid(row=12, column=0, columnspan=2, pady=15)
+
+    def toggle_api_visibility(self):
+        if self.api_entry.cget('show') == '*':
+            self.api_entry.config(show='')
+        else:
+            self.api_entry.config(show='*')
 
     def setup_tab_release(self):
         self.rel_vars = {
@@ -73,8 +97,6 @@ class PrezGenerator:
 
     def auto_detect(self, filename):
         fn = filename.upper()
-
-        # Titre et Année
         year_match = re.search(r'[\. \((](19\d{2}|20\d{2})[\. \))]', filename)
         if year_match:
             self.api_vars["Année"].set(year_match.group(1))
@@ -82,7 +104,6 @@ class PrezGenerator:
         else:
             self.api_vars["Titre"].set(os.path.splitext(filename)[0].replace('.', ' ').strip().title())
 
-        # Langue (PRIORITÉ VOSTFR)
         if "VOSTFR" in fn:
             self.rel_vars["Langue"].set("VOSTFR")
         elif "MULTI" in fn:
@@ -91,18 +112,13 @@ class PrezGenerator:
             self.rel_vars["Langue"].set("FRENCH")
 
         self.is_multi.set("MULTI" in fn)
-
-        # Source / Codec / Res
         source_m = re.search(r"(BD-?RIP|BR-?RIP|BLURAY|WEB-?DL|WEB|HDTV|DVD)", fn)
         self.rel_vars["Source"].set(source_m.group(0) if source_m else "BluRay")
-
         codec_m = re.search(r"(X264|X265|H264|H265|HEVC|XVID)", fn)
         self.rel_vars["Codec"].set(codec_m.group(0).lower() if codec_m else "x264")
-
         res_m = re.search(r"(720P|1080P|2160P|4K)", fn)
         self.rel_vars["Resolution"].set(res_m.group(0).lower() if res_m else "1080p")
 
-        # Team
         if "-" in filename:
             team = filename.split("-")[-1].split('.')[0].strip()
             self.rel_vars["Team"].set(team)
@@ -110,14 +126,19 @@ class PrezGenerator:
             self.rel_vars["Team"].set("UNKNOWN")
 
     def fetch_tmdb_data(self):
+        api_key = self.api_key_var.get().strip()
+        if not api_key:
+            messagebox.showerror("Erreur", "Veuillez saisir une clé API TMDb.")
+            return
+
         title = self.api_vars["Titre"].get()
         year = self.api_vars["Année"].get()
-        url = f"https://api.themoviedb.org/3/search/movie?api_key={self.api_key}&query={title}&year={year}&language=fr-FR"
+        url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={title}&year={year}&language=fr-FR"
         try:
             res = requests.get(url).json()
             if res.get('results'):
                 m_id = res['results'][0]['id']
-                data = requests.get(f"https://api.themoviedb.org/3/movie/{m_id}?api_key={self.api_key}&language=fr-FR&append_to_response=credits").json()
+                data = requests.get(f"https://api.themoviedb.org/3/movie/{m_id}?api_key={api_key}&language=fr-FR&append_to_response=credits").json()
                 self.fill_ui_from_api(data)
                 self.generate_bbcode()
                 self.notebook.select(2)
