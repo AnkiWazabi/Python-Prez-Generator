@@ -1,5 +1,8 @@
 Work in Progress. 
-Can be used as a base but still require to add Mediainfo for the specs.
-
+MediaInfo added, still need to polish bbcode.
 
 pip install pymediainfo
+
+(Still require mediainfo installed locally)
+
+Tested on Nobara with no issue, still require Windows testing.
