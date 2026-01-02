@@ -7,11 +7,11 @@ from tkinter import ttk, filedialog, messagebox
 class PrezGenerator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Générateur de Prez BBCode - TMDb Edition")
-        self.root.geometry("900x900")
-
-        # Clé par défaut (optionnelle)
+        self.root.title("Générateur de Prez BBCode - TMDb Edition Pro")
+        self.root.geometry("950x950")
         self.default_api_key = "Votre clé API"
+
+        self.audio_tracks = []
         self.setup_ui()
 
     def setup_ui(self):
@@ -25,27 +25,25 @@ class PrezGenerator:
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.tab_general = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(self.tab_general, text="Général (API)")
         self.tab_release = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(self.tab_release, text="Technique (Fichier)")
         self.tab_bbcode = ttk.Frame(self.notebook, padding=10)
+
+        self.notebook.add(self.tab_general, text="Général (API)")
+        self.notebook.add(self.tab_release, text="Technique (Fichier)")
         self.notebook.add(self.tab_bbcode, text="Résultat BBCode")
 
         self.setup_tab_general()
         self.setup_tab_release()
         self.setup_tab_bbcode()
 
-    def setup_tab_general(self)
+    def setup_tab_general(self):
         api_frame = ttk.Frame(self.tab_general)
         api_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-
         ttk.Label(api_frame, text="Clé API TMDb :", font=("Arial", 9, "bold")).pack(side="left")
         self.api_key_var = tk.StringVar(value=self.default_api_key)
         self.api_entry = ttk.Entry(api_frame, textvariable=self.api_key_var, show="*", width=45)
         self.api_entry.pack(side="left", padx=5)
-
-        self.btn_show_api = ttk.Button(api_frame, text="👁", width=3, command=self.toggle_api_visibility)
-        self.btn_show_api.pack(side="left")
+        ttk.Button(api_frame, text="👁", width=3, command=self.toggle_api_visibility).pack(side="left")
 
         ttk.Separator(self.tab_general, orient='horizontal').grid(row=1, column=0, columnspan=2, sticky="ew", pady=10)
 
@@ -63,25 +61,69 @@ class PrezGenerator:
         ttk.Label(self.tab_general, text="Synopsis :").grid(row=11, column=0, sticky="nw", pady=3)
         self.synopsis_text = tk.Text(self.tab_general, height=8, width=52, font=("Arial", 9))
         self.synopsis_text.grid(row=11, column=1, padx=10, pady=3)
-
         ttk.Button(self.tab_general, text="🔍 RÉCUPÉRER & GÉNÉRER LE BBCODE", command=self.fetch_tmdb_data).grid(row=12, column=0, columnspan=2, pady=15)
 
-    def toggle_api_visibility(self):
-        if self.api_entry.cget('show') == '*':
-            self.api_entry.config(show='')
-        else:
-            self.api_entry.config(show='*')
-
     def setup_tab_release(self):
-        self.rel_vars = {
-            "Source": tk.StringVar(), "Codec": tk.StringVar(), "Langue": tk.StringVar(),
-            "Team": tk.StringVar(), "Resolution": tk.StringVar()
+        video_frame = ttk.LabelFrame(self.tab_release, text=" Vidéo ", padding=10)
+        video_frame.pack(fill="x", pady=5)
+
+        self.video_vars = {
+            "Qualité": tk.StringVar(), "Source": tk.StringVar(),
+            "Format": tk.StringVar(), "Codec": tk.StringVar(), "Bitrate (kbps)": tk.StringVar()
         }
+
+        for i, (name, var) in enumerate(self.video_vars.items()):
+            ttk.Label(video_frame, text=f"{name} :").grid(row=i, column=0, sticky="w")
+            ttk.Entry(video_frame, textvariable=var, width=30).grid(row=i, column=1, padx=10, pady=2)
+
         self.is_multi = tk.BooleanVar()
-        for i, (name, var) in enumerate(self.rel_vars.items()):
-            ttk.Label(self.tab_release, text=f"{name} :").grid(row=i, column=0, sticky="w", pady=5)
-            ttk.Entry(self.tab_release, textvariable=var, width=40).grid(row=i, column=1, padx=10, pady=5)
-        ttk.Checkbutton(self.tab_release, text="Option MULTi (FR/EN)", variable=self.is_multi).grid(row=5, column=1, sticky="w", pady=10)
+        self.team_var = tk.StringVar()
+        ttk.Label(video_frame, text="Team :").grid(row=5, column=0, sticky="w")
+        ttk.Entry(video_frame, textvariable=self.team_var, width=30).grid(row=5, column=1, padx=10, pady=2)
+        ttk.Checkbutton(video_frame, text="MULTi (Global)", variable=self.is_multi).grid(row=6, column=1, sticky="w")
+
+        audio_container = ttk.LabelFrame(self.tab_release, text=" Audio (Pistes) ", padding=10)
+        audio_container.pack(fill="both", expand=True, pady=10)
+
+        btn_frame = ttk.Frame(audio_container)
+        btn_frame.pack(anchor="e")
+        ttk.Button(btn_frame, text="+ Ajouter une piste", command=self.add_audio_track).pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="✖ Supprimer la dernière", command=self.remove_audio_track).pack(side="left", padx=2)
+
+        self.audio_notebook = ttk.Notebook(audio_container)
+        self.audio_notebook.pack(fill="both", expand=True, pady=5)
+
+        self.add_audio_track()
+
+    def add_audio_track(self):
+        track_num = len(self.audio_tracks) + 1
+        track_frame = ttk.Frame(self.audio_notebook, padding=10)
+        self.audio_notebook.add(track_frame, text=f"Piste {track_num}")
+
+        vars = {
+            "Langue": tk.StringVar(value="French" if track_num == 1 else "English"),
+            "Pistes (Canaux)": tk.StringVar(value="5.1"),
+            "Codec": tk.StringVar(value="AC3"),
+            "Bitrate (kbps)": tk.StringVar(value="640"),
+            "frame_ref": track_frame
+        }
+
+        for i, (name, var) in enumerate(list(vars.items())[:-1]):
+            ttk.Label(track_frame, text=f"{name} :").grid(row=i, column=0, sticky="w", pady=2)
+            ttk.Entry(track_frame, textvariable=var, width=40).grid(row=i, column=1, padx=10, pady=2)
+
+        self.audio_tracks.append(vars)
+        self.audio_notebook.select(track_frame)
+
+    def remove_audio_track(self):
+        if len(self.audio_tracks) > 1:
+            last_track = self.audio_tracks.pop()
+            last_track["frame_ref"].destroy()
+        else:
+            messagebox.showwarning("Attention", "Il faut au moins une piste audio.")
+
+    def toggle_api_visibility(self):
+        self.api_entry.config(show='' if self.api_entry.cget('show') == '*' else '*')
 
     def setup_tab_bbcode(self):
         self.output_text = tk.Text(self.tab_bbcode, font=("Consolas", 10), bg="#f8f9fa")
@@ -91,46 +133,44 @@ class PrezGenerator:
     def browse_file(self):
         filename = filedialog.askopenfilename(filetypes=[("Video files", "*.mkv *.mp4 *.avi")])
         if filename:
-            base = os.path.basename(filename)
             self.file_path.set(filename)
-            self.auto_detect(base)
+            self.auto_detect(os.path.basename(filename))
 
     def auto_detect(self, filename):
-        fn = filename.upper()
-        year_match = re.search(r'[\. \((](19\d{2}|20\d{2})[\. \))]', filename)
+        name_no_ext = os.path.splitext(filename)[0]
+        fn_upper = name_no_ext.upper()
+
+        year_match = re.search(r'(?:[\.\s\(\[])(19\d{2}|20\d{2})(?:[\.\s\)\s\]]|$)', name_no_ext)
+
         if year_match:
-            self.api_vars["Année"].set(year_match.group(1))
-            self.api_vars["Titre"].set(filename[:year_match.start()].replace('.', ' ').strip().title())
+            year = year_match.group(1)
+            self.api_vars["Année"].set(year)
+            title_raw = name_no_ext[:year_match.start()]
         else:
-            self.api_vars["Titre"].set(os.path.splitext(filename)[0].replace('.', ' ').strip().title())
+            title_raw = name_no_ext
 
-        if "VOSTFR" in fn:
-            self.rel_vars["Langue"].set("VOSTFR")
-        elif "MULTI" in fn:
-            self.rel_vars["Langue"].set("MULTi (VFF/EN)")
+        title_clean = re.sub(r'[\._]', ' ', title_raw).strip()
+        self.api_vars["Titre"].set(title_clean.title())
+
+        res_m = re.search(r"(720P|1080P|2160P|4K|UHD)", fn_upper)
+        self.video_vars["Qualité"].set(res_m.group(0) if res_m else "1080p")
+
+        source_m = re.search(r"(BD-?RIP|BR-?RIP|BLURAY|WEB-?DL|WEB|HDTV|DVD|REMUX)", fn_upper)
+        self.video_vars["Source"].set(source_m.group(0) if source_m else "BluRay")
+
+        codec_m = re.search(r"(X264|X265|H264|H265|HEVC|AV1|XVID)", fn_upper)
+        self.video_vars["Codec"].set(codec_m.group(0).lower() if codec_m else "x264")
+
+        self.video_vars["Format"].set("MKV" if ".MKV" in filename.upper() else "MP4")
+
+        self.is_multi.set("MULTI" in fn_upper)
+        if "-" in name_no_ext:
+            self.team_var.set(name_no_ext.split("-")[-1].strip())
         else:
-            self.rel_vars["Langue"].set("FRENCH")
-
-        self.is_multi.set("MULTI" in fn)
-        source_m = re.search(r"(BD-?RIP|BR-?RIP|BLURAY|WEB-?DL|WEB|HDTV|DVD)", fn)
-        self.rel_vars["Source"].set(source_m.group(0) if source_m else "BluRay")
-        codec_m = re.search(r"(X264|X265|H264|H265|HEVC|XVID)", fn)
-        self.rel_vars["Codec"].set(codec_m.group(0).lower() if codec_m else "x264")
-        res_m = re.search(r"(720P|1080P|2160P|4K)", fn)
-        self.rel_vars["Resolution"].set(res_m.group(0).lower() if res_m else "1080p")
-
-        if "-" in filename:
-            team = filename.split("-")[-1].split('.')[0].strip()
-            self.rel_vars["Team"].set(team)
-        else:
-            self.rel_vars["Team"].set("UNKNOWN")
+            self.team_var.set("UNKNOWN")
 
     def fetch_tmdb_data(self):
         api_key = self.api_key_var.get().strip()
-        if not api_key:
-            messagebox.showerror("Erreur", "Veuillez saisir une clé API TMDb.")
-            return
-
         title = self.api_vars["Titre"].get()
         year = self.api_vars["Année"].get()
         url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={title}&year={year}&language=fr-FR"
@@ -142,10 +182,7 @@ class PrezGenerator:
                 self.fill_ui_from_api(data)
                 self.generate_bbcode()
                 self.notebook.select(2)
-            else:
-                messagebox.showwarning("TMDb", "Film non trouvé.")
-        except Exception as e:
-            messagebox.showerror("Erreur", str(e))
+        except Exception as e: messagebox.showerror("Erreur", str(e))
 
     def fill_ui_from_api(self, data):
         self.api_vars["Titre"].set(data.get('title', ''))
@@ -157,14 +194,18 @@ class PrezGenerator:
         self.api_vars["Genres"].set(", ".join([g['name'] for g in data.get('genres', [])]))
         crew = data.get('credits', {}).get('crew', [])
         self.api_vars["Réalisateur"].set(next((m['name'] for m in crew if m['job'] == 'Director'), "Inconnu"))
-        cast = data.get('credits', {}).get('cast', [])
-        self.api_vars["Acteurs"].set(", ".join([a['name'] for a in cast[:5]]))
+        self.api_vars["Acteurs"].set(", ".join([a['name'] for a in data.get('credits', {}).get('cast', [])[:5]]))
         self.api_vars["Poster"].set(f"https://image.tmdb.org/t/p/w500{data.get('poster_path')}")
         self.synopsis_text.delete(1.0, tk.END)
         self.synopsis_text.insert(tk.END, data.get('overview', ''))
 
     def generate_bbcode(self):
         multi = " [b][color=#FF0000][MULTi][/color][/b]" if self.is_multi.get() else ""
+
+        audio_bbcode = ""
+        for i, track in enumerate(self.audio_tracks):
+            audio_bbcode += f"[b]Piste Audio {i+1} :[/b] {track['Langue'].get()} | {track['Codec'].get()} ({track['Pistes (Canaux)'].get()}) @ {track['Bitrate (kbps)'].get()} kbps\n"
+
         bbcode = f"""[center]
 [img]{self.api_vars['Poster'].get()}[/img]
 
@@ -180,13 +221,14 @@ class PrezGenerator:
 [quote][b]Synopsis :[/b]
 {self.synopsis_text.get(1.0, tk.END).strip()}[/quote]
 
-[b][color=#0000ff]Infos Release[/color][/b]
-[b]Source :[/b] {self.rel_vars['Source'].get()}
-[b]Qualité :[/b] {self.rel_vars['Resolution'].get()}
-[b]Codec :[/b] {self.rel_vars['Codec'].get()}
-[b]Langue :[/b] {self.rel_vars['Langue'].get()}
-[b]Team :[/b] {self.rel_vars['Team'].get()}
+[b][color=#0000ff]INFOS VIDÉO[/color][/b]
+[b]Qualité :[/b] {self.video_vars['Qualité'].get()} | [b]Source :[/b] {self.video_vars['Source'].get()}
+[b]Format :[/b] {self.video_vars['Format'].get()} | [b]Codec :[/b] {self.video_vars['Codec'].get()}
+[b]Bitrate :[/b] {self.video_vars['Bitrate (kbps)'].get()} kbps
 
+[b][color=#0000ff]INFOS AUDIO[/color][/b]
+{audio_bbcode}
+[b]Team :[/b] {self.team_var.get()}
 [b]Lien TMDb :[/b] [url]{self.api_vars['Lien TMDb'].get()}[/url]
 [/center]"""
         self.output_text.delete(1.0, tk.END)
