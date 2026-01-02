@@ -19,7 +19,7 @@ class PrezGenerator:
     def get_full_language_name(self, code):
         """Convertit les codes ISO en noms complets français"""
         languages = {
-            'fr': 'Français (TrueFrench)', 'fre': 'Français (TrueFrench)', 'fra': 'Français (TrueFrench)',
+            'fr': 'Français', 'fre': 'Français', 'fra': 'Français',
             'en': 'Anglais', 'eng': 'Anglais',
             'es': 'Espagnol', 'spa': 'Espagnol',
             'it': 'Italien', 'ita': 'Italien',
