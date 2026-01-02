@@ -11,8 +11,7 @@ class PrezGenerator:
         self.root.title("Générateur de Prez BBCode - TMDb & MediaInfo Pro")
         self.root.geometry("950x950")
 
-        # Clé par défaut
-        self.default_api_key = "4c22b77c619730b090a06963a508f4db"
+        self.default_api_key = ""
 
         self.audio_tracks = []
         self.setup_ui()
@@ -33,7 +32,6 @@ class PrezGenerator:
         return languages.get(code.lower(), code.title())
 
     def setup_ui(self):
-        # 1. Sélection du fichier
         file_frame = ttk.LabelFrame(self.root, text=" 1. Sélection du fichier ", padding=10)
         file_frame.pack(fill="x", padx=10, pady=5)
         self.file_path = tk.StringVar()
@@ -43,7 +41,6 @@ class PrezGenerator:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Onglets principaux
         self.tab_general = ttk.Frame(self.notebook, padding=10)
         self.tab_release = ttk.Frame(self.notebook, padding=10)
         self.tab_bbcode = ttk.Frame(self.notebook, padding=10)
@@ -57,7 +54,6 @@ class PrezGenerator:
         self.setup_tab_bbcode()
 
     def setup_tab_general(self):
-        # Zone Clé API
         api_frame = ttk.Frame(self.tab_general)
         api_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         ttk.Label(api_frame, text="Clé API TMDb :", font=("Arial", 9, "bold")).pack(side="left")
@@ -136,9 +132,7 @@ class PrezGenerator:
             video_track = next((t for t in media_info.tracks if t.track_type == 'Video'), None)
             gen_track = next((t for t in media_info.tracks if t.track_type == 'General'), None)
 
-            # --- ANALYSE VIDÉO ---
             if video_track:
-                # Logique HDR détaillée
                 hdr_f = video_track.hdr_format or ""
                 transfer = video_track.transfer_characteristics or ""
                 if "Dolby Vision" in hdr_f:
@@ -166,14 +160,12 @@ class PrezGenerator:
                 self.video_vars["Codec"].set(codec_map.get(video_track.format, video_track.format))
                 self.video_vars["Bitrate (kbps)"].set(int(video_track.bit_rate / 1000) if video_track.bit_rate else "Variable")
 
-            # --- SOURCE & TEAM ---
             filename = os.path.basename(filepath)
             fn_upper = filename.upper()
 
             if gen_track:
                 self.video_vars["Format"].set(gen_track.format)
 
-            # Détection Source intelligente
             if any(x in fn_upper for x in ["BLURAY", "BD-RIP", "BDRIP", "BRRIP"]):
                 self.video_vars["Source"].set("BluRay")
             elif any(x in fn_upper for x in ["WEB-DL", "WEBDL", "WEB.DL", "AMZN", "NF.WEB","WEB"]):
@@ -190,7 +182,6 @@ class PrezGenerator:
             parts = name_no_ext.split("-")
             self.team_var.set(parts[-1].strip() if len(parts) > 1 else "UNKNOWN")
 
-            # --- ANALYSE AUDIO ---
             for track in media_info.tracks:
                 if track.track_type == 'Audio':
                     lang_raw = track.language or "fr"
@@ -200,7 +191,6 @@ class PrezGenerator:
                     bitrate = int(track.bit_rate / 1000) if track.bit_rate else "Variable"
                     self.add_audio_track_auto(lang_full, channels, codec, bitrate)
 
-            # --- TITRE / ANNEE ---
             year_match = re.search(r'[\. \((](19\d{2}|20\d{2})[\. \))]', filename)
             if year_match:
                 self.api_vars["Année"].set(year_match.group(1))
