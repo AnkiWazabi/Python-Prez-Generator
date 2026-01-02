@@ -8,7 +8,7 @@ from pymediainfo import MediaInfo
 class PrezGenerator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Générateur de Prez BBCode - TMDb & MediaInfo Pro")
+        self.root.title("Python Prez Generator")
         self.root.geometry("950x950")
 
         self.default_api_key = ""
