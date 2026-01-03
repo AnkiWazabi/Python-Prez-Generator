@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import zlib
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pymediainfo import MediaInfo
@@ -9,15 +10,26 @@ class PrezGenerator:
     def __init__(self, root):
         self.root = root
         self.root.title("Python Prez Generator")
-        self.root.geometry("950x950")
+        self.root.geometry("950x980")
 
         self.default_api_key = ""
-
         self.audio_tracks = []
         self.setup_ui()
 
+    def calculate_crc32(self, filepath):
+        try:
+            crc = 0
+            with open(filepath, 'rb') as f:
+                while True:
+                    data = f.read(65536)
+                    if not data:
+                        break
+                    crc = zlib.crc32(data, crc)
+            return "%08X" % (crc & 0xFFFFFFFF)
+        except Exception as e:
+            return "Erreur"
+
     def get_full_language_name(self, code):
-        """Convertit les codes ISO en noms complets français"""
         languages = {
             'fr': 'Français', 'fre': 'Français', 'fra': 'Français',
             'en': 'Anglais', 'eng': 'Anglais',
@@ -78,7 +90,12 @@ class PrezGenerator:
         ttk.Label(self.tab_general, text="Synopsis :").grid(row=11, column=0, sticky="nw", pady=3)
         self.synopsis_text = tk.Text(self.tab_general, height=8, width=52, font=("Arial", 9))
         self.synopsis_text.grid(row=11, column=1, padx=10, pady=3)
-        ttk.Button(self.tab_general, text="🔍 RÉCUPÉRER & GÉNÉRER LE BBCODE", command=self.fetch_tmdb_data).grid(row=12, column=0, columnspan=2, pady=15)
+
+        btn_frame = ttk.Frame(self.tab_general)
+        btn_frame.grid(row=12, column=0, columnspan=2, pady=15)
+
+        ttk.Button(btn_frame, text="🔍 RÉCUPÉRER DEPUIS TMDB", width=30, command=self.fetch_tmdb_data).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="⚙️ GÉNÉRER LE BBCODE", width=30, command=self.generate_bbcode).pack(side="left", padx=5)
 
     def setup_tab_release(self):
         video_frame = ttk.LabelFrame(self.tab_release, text=" Vidéo ", padding=10)
@@ -95,6 +112,10 @@ class PrezGenerator:
         self.team_var = tk.StringVar()
         ttk.Label(video_frame, text="Team :").grid(row=6, column=0, sticky="w")
         ttk.Entry(video_frame, textvariable=self.team_var, width=35).grid(row=6, column=1, padx=10, pady=2)
+
+        # CASE CRC32
+        self.use_crc32 = tk.BooleanVar(value=False)
+        ttk.Checkbutton(video_frame, text="Inclure le CRC32 (Calculé à la génération)", variable=self.use_crc32).grid(row=7, column=1, sticky="w", pady=5)
 
         audio_container = ttk.LabelFrame(self.tab_release, text=" Audio ", padding=10)
         audio_container.pack(fill="both", expand=True, pady=10)
@@ -147,7 +168,7 @@ class PrezGenerator:
 
                 w = int(video_track.width)
                 h = int(video_track.height)
-                if w >= 3400 or h >= 1944:#J'ai retiré 10% dans chaque seuil pour ceux qui s'amusent a retirer 2px en hauteur
+                if w >= 3400 or h >= 1944:
                     q = "2160p (4K)"
                 elif w >= 1728 or h >= 972:
                     q = "1080p"
@@ -177,7 +198,6 @@ class PrezGenerator:
             else:
                 self.video_vars["Source"].set("")
 
-            # Team : uniquement via nom de fichier (après le dernier tiret)
             name_no_ext = os.path.splitext(filename)[0]
             parts = name_no_ext.split("-")
             self.team_var.set(parts[-1].strip() if len(parts) > 1 else "UNKNOWN")
@@ -228,8 +248,7 @@ class PrezGenerator:
                 m_id = res['results'][0]['id']
                 data = requests.get(f"https://api.themoviedb.org/3/movie/{m_id}?api_key={api_key}&language=fr-FR&append_to_response=credits").json()
                 self.fill_ui_from_api(data)
-                self.generate_bbcode()
-                self.notebook.select(2)
+                messagebox.showinfo("TMDb", "Informations récupérées avec succès !")
             else: messagebox.showwarning("TMDb", "Aucun résultat trouvé.")
         except Exception as e: messagebox.showerror("Erreur", str(e))
 
@@ -249,6 +268,14 @@ class PrezGenerator:
         self.synopsis_text.insert(tk.END, data.get('overview', ''))
 
     def generate_bbcode(self):
+        crc_str = ""
+        if self.use_crc32.get() and self.file_path.get():
+            self.root.title("Calcul du CRC32 en cours...")
+            self.root.update_idletasks()
+            crc_val = self.calculate_crc32(self.file_path.get())
+            crc_str = f" | [b]CRC32 :[/b] {crc_val}"
+            self.root.title("Python Prez Generator")
+
         hdr_val = self.video_vars['HDR'].get()
         hdr_tag = ""
         if "Dolby Vision" in hdr_val:
@@ -278,15 +305,16 @@ class PrezGenerator:
 [b][color=#0000ff]INFOS VIDÉO[/color][/b]
 [b]Qualité :[/b] {self.video_vars['Qualité'].get()} | [b]Source :[/b] {self.video_vars['Source'].get()}
 [b]Format :[/b] {self.video_vars['Format'].get()} | [b]Codec :[/b] {self.video_vars['Codec'].get()}
-[b]Bitrate :[/b] {self.video_vars['Bitrate (kbps)'].get()} kbps | [b]HDR :[/b] {hdr_val}
+b]Bitrate :[/b] {self.video_vars['Bitrate (kbps)'].get()} kbps | [b]HDR :[/b] {hdr_val}
 
 [b][color=#0000ff]INFOS AUDIO[/color][/b]
 {audio_bbcode}
-[b]Team :[/b] {self.team_var.get()}
+[b]Team :[/b] {self.team_var.get()}{crc_str}
 [b]Lien TMDb :[/b] [url]{self.api_vars['Lien TMDb'].get()}[/url]
 [/center]"""
         self.output_text.delete(1.0, tk.END)
         self.output_text.insert(tk.END, bbcode.strip())
+        self.notebook.select(2)
 
     def copy_to_clipboard(self):
         self.root.clipboard_clear()
